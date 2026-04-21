@@ -87,9 +87,9 @@ When required fields are absent, the assistant asks exactly one concise follow-u
 
 ```
 You: Send an email to Priya
-🤖: What is the subject and body of the email you want to send to Priya?
+assistant: What is the subject and body of the email you want to send to Priya?
 You: Tell her I won't attend today's meeting
-✅ Email sent to Priya with subject 'Regarding today's meeting'
+assistant: Email sent to Priya with subject 'Regarding today's meeting'
 ```
 
 ---
@@ -125,32 +125,26 @@ python main.py
 **Complete request — executes directly:**
 ```
 You: Schedule a meeting with Rahul and Priya next Tuesday at 3pm for 30 minutes
-✅ Meeting scheduled on next Tuesday at 3pm with participants Rahul, Priya
+assistant: Meeting scheduled on next Tuesday at 3pm with participants Rahul, Priya
 ```
 
 **Incomplete request — asks follow-up:**
 ```
 You: Send an email to John
-🤖: What would you like the email to say?
+assistant: What would you like the email to say?
 You: Tell him the invoice is overdue
-✅ Email sent to John with subject 'Regarding overdue invoice'
+assistant: Email sent to John with subject 'Regarding overdue invoice'
 ```
 
 **Unsupported request — graceful fallback:**
 ```
 You: Search for a restaurant near me
-🤖: I can help with send_email, draft_email, and schedule_meeting. How can I assist?
+assistant: I can help with send_email, draft_email, and schedule_meeting. How can I assist?
 ```
 
 **Draft email:**
 ```
 You: Draft an email to the design team about Friday's release
-✅ Email drafted to Design Team with subject 'Friday Release'
+assistant: Email drafted to Design Team with subject 'Friday Release'
 ```
 
-
----
-
-## Author
-
-Adil Kadival — Full-Stack Engineer, GSoC 2025 Contributor
