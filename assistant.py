@@ -1,11 +1,13 @@
 
 import json
 
+
+from openai import OpenAI
 from groq import Groq
-from config import GROQ_API_KEY, MODEL
+from config import MODEL, MODEL_API_KEY
 from schema import REQUIRED_FIELDS
 
-client = Groq(api_key=GROQ_API_KEY)
+client = Groq(api_key=MODEL_API_KEY)
 
 ## system prompt ...
 SYSTEM_PROMPT = """
@@ -18,7 +20,6 @@ SYSTEM_PROMPT = """
 
     OUTPUT MUST BE STRICT JSON ONLY! 
 
-
     schema:{
         "tool": "...",
         "confidence": 0-1,
@@ -27,34 +28,58 @@ SYSTEM_PROMPT = """
         "follow_up_question": null
     }
 
-
     required fields for each tool:
         - send_email: to, subject, body
-        - draft_email: to, subject, body
-        - schedule_meeting: participants, date_or_time, duration_minutes
+        - draft_email: to, subject, body 
+        - schedule_meeting: participants, date_or_time, duration_minutes (date_or_time will not be in a specific format, it can be any string that represents date or time, e.g. "tomorrow at 5pm", "next monday", "2023-08-15 14:00", etc.)
 
-    CRITICAL: Return RAW JSON only. No markdown. No backticks. No ```json. Just the JSON object starting with { and ending with }.
+    CRITICAL: Return only and only JSON . No markdown. No backticks. No ```json. Just the JSON object starting with { and ending with }.
 
-    IMPORTANT: participants must always be a JSON array e.g. ["Priya"], never a plain string.to must always be a JSON array e.g. ["Rahul"], never a plain string.
+    IMPORTANT: response in just JOSN formate, regardless the prompt is complete or you're follow_up_question, participants must always be a JSON array e.g. ["Priya"], never a plain string.to must always be a JSON array e.g. ["Rahul"], never a plain string.
 
+
+    ANSWERING FORMAT:
+        - If the user prompt is clear and complete, exm :: "Schedule a 45 minute meeting with Rahul and Priya next Tuesday afternoon:", then your response should be : 
+            {
+             "tool": "schedule_meeting",
+             "confidence": 0.9,
+             "args": {
+               "participants": ["Rahul", "Priya"],
+               "duration_minutes": 45,
+               "date": "next Tuesday",
+               "time_preference": "afternoon"
+             },
+             "missing_fields": [],
+             "follow_up_question": null,
+            }
+            
+        - If the user prompt is missing some required fields, exm :: "Schedule a meeting with Rahul and Priya next Tuesday afternoon:", then your response should be :
+            {
+             "tool": "schedule_meeting",
+             "confidence": 0.7,
+             "args": {
+               "participants": ["Rahul", "Priya"],
+               "date": "next Tuesday",
+               "time_preference": "afternoon"
+             },
+             "missing_fields": ["duration_minutes"],
+             "follow_up_question": "Hey! I need some more information to schedule the meeting, can you please provide the following details: duration_minutes"
+            }
+            
+        - If the user prompt is not clear at all and doesn't support any of the tools, exm :: "I want to search for a restaurant", then your response should be :
+            {
+             "tool": null,
+             "confidence": 0,
+             "args": {},
+             "missing_fields": [],
+             "follow_up_question": "Hey! sorry for the inconviniet! I can help with send_email, draft_email, and schedule_meeting."
+            }
     
     RULES:    
-        - If the user prompt is not clear, you should ask follow up question to get more information, and list the missing fields in the "missing_fields" array.
-        
-        - If the user prompt is clear and you have all the information you need, you should call the appropriate tool and fill in the "tool" and "args" fields accordingly.
-        
+        - MUST follow the schema strictly, and respond in JSON format only, no markdown, no backticks, no explanations, just the JSON object, even messing fields and follow up question should be in JSON format.
         - The "confidence" field should reflect how confident you are in your understanding of the user's intent, with 1 being completely confident and 0 being not confident at all.
         
-        - Always respond in the specified JSON format, and do not include any additional text or explanations outside of the JSON structure.
         
-        - if user prompt is not supports any of the tools, you should respond with tool as null and confidence as 0, and ask follow up question to show your assist on the send_email, draft_email, schedule_metting , EXAMPLE :  user prompt : "I want to search for a restaurant", so your response should be :
-        schema:{
-            "tool": null,
-            "confidence": 0,
-            "args": {},
-            "missing_fields": [],
-            "follow_up_question": "Hey! sorry for the inconviniet! I can help with send_email, draft_email, and schedule_meeting."
-        }
 """
 
 ### model calling ...
