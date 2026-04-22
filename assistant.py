@@ -1,8 +1,6 @@
 
 import json
 
-
-from openai import OpenAI
 from groq import Groq
 from config import MODEL, MODEL_API_KEY
 from schema import REQUIRED_FIELDS
@@ -118,8 +116,17 @@ def validate_prompt(response: dict):
     required = REQUIRED_FIELDS.get(tool, [])
     messing = []
 
+    def is_missing(value):
+        if value is None:
+            return True
+        if isinstance(value, str) and not value.strip():
+            return True
+        if isinstance(value, list) and len(value) == 0:
+            return True
+        return False
+
     for field in required:
-        if field not in args:
+        if field not in args or is_missing(args.get(field)):
             messing.append(field)
 
     response["missing_fields"] = messing
@@ -127,20 +134,26 @@ def validate_prompt(response: dict):
     ### itrate over the missing fields and add follow up question to response
     if messing:
         if tool == "send_email":
-            question = "Hey ! I need some more information to send the email, can you please provide the following details: "
-            for field in messing:
-                question += f"{field}, "
-            response["follow_up_question"] = question.strip(", ")    
+            if set(messing) == {"body"}:
+                response["follow_up_question"] = "What would you like the email to say?"
+            else:
+                question = "Hey ! I need some more information to send the email, can you please provide the following details: "
+                for field in messing:
+                    question += f"{field}, "
+                response["follow_up_question"] = question.strip(", ")
         elif tool == "draft_email":
             question = "Hey ! I need some more information to draft the email, can you please provide the following details: "
             for field in messing:
                 question += f"{field}, "
             response["follow_up_question"] = question.strip(", ")
         elif tool == "schedule_meeting":
-            question = "Hey ! I need some more information to schedule the meeting, can you please provide the following details: "
-            for field in messing:
-                question += f"{field}, "
-            response["follow_up_question"] = question.strip(", ")
+            if set(messing) == {"date_or_time", "duration_minutes"}:
+                response["follow_up_question"] = "When should I schedule the meeting and for how long?"
+            else:
+                question = "Hey ! I need some more information to schedule the meeting, can you please provide the following details: "
+                for field in messing:
+                    question += f"{field}, "
+                response["follow_up_question"] = question.strip(", ")
     else:
         response["follow_up_question"] = None
 
@@ -172,9 +185,10 @@ def execute_tool(response: dict):
         }
     elif tool == "schedule_meeting":
         # Mock scheduling meeting
+        meeting_time = args.get("date_or_time") or args.get("date") or args.get("time")
         return {
             "status": "success",
-            "message": f"Meeting scheduled on {args.get('date')} at {args.get('time')} with participants {', '.join(args.get('participants', []))}"
+            "message": f"Meeting scheduled at {meeting_time} with participants {', '.join(args.get('participants', []))}"
         }
     else:
         return {
