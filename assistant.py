@@ -35,7 +35,6 @@ SYSTEM_PROMPT = """
 
     IMPORTANT: response in just JOSN formate, regardless the prompt is complete or you're follow_up_question, participants must always be a JSON array e.g. ["Priya"], never a plain string.to must always be a JSON array e.g. ["Rahul"], never a plain string.
 
-
     ANSWERING FORMAT:
         - If the user prompt is clear and complete, exm :: "Schedule a 45 minute meeting with Rahul and Priya next Tuesday afternoon:", then your response should be : 
             {
@@ -76,6 +75,7 @@ SYSTEM_PROMPT = """
     RULES:    
         - MUST follow the schema strictly, and respond in JSON format only, no markdown, no backticks, no explanations, just the JSON object, even messing fields and follow up question should be in JSON format.
         - The "confidence" field should reflect how confident you are in your understanding of the user's intent, with 1 being completely confident and 0 being not confident at all.
+        - once a task is completed like send_email, draft_email, or schedule_meeting, and after providing the response, you should reset and be ready for the next user prompt, and your response to the next user prompt should not be influenced by the previous prompts or responses. Each user prompt should be treated independently.
         
         
 """
