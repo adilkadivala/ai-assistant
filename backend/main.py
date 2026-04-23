@@ -1,6 +1,7 @@
 import json
 
-from assistant import execute_tool, process_user_prompt
+from backend.assistant import execute_tool, process_user_prompt
+
 
 def main():
     print("Welcome to AI assistant! Type 'exit' to quit.\n")
@@ -11,22 +12,18 @@ def main():
             print("Goodbye!")
             break
 
-        combined = user_input  
-
+        combined = user_input
         response = process_user_prompt(combined)
 
         while response.get("missing_fields"):
             print("\n" + json.dumps(response, indent=2))
-            
             follow_up = input("You: ")
             combined = f"{combined}. {follow_up}"
             response = process_user_prompt(combined)
 
-        result = execute_tool(response)
+        execute_tool(response)
         print("\n" + json.dumps(response, indent=2))
+
 
 if __name__ == "__main__":
     main()
-
-
-

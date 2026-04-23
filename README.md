@@ -40,10 +40,14 @@ Complete? → Mock execute + print confirmation
 
 ```
 ai_assistant/
-├── main.py          # Entry point — conversation loop and UI
-├── assistant.py     # LLM call, validation, mock execution logic
-├── schema.py        # Required fields per tool
-├── config.py        # Environment variable loading
+├── backend/
+│   ├── main.py      # CLI entry point — conversation loop
+│   ├── api.py       # FastAPI app for frontend communication
+│   ├── assistant.py # LLM call, validation, mock execution logic
+│   ├── schema.py    # Required fields per tool
+│   └── config.py    # Environment variable loading
+├── frontend/        # React + Tailwind UI
+├── requirements.txt # Python dependencies
 ├── .env             # API keys (not committed)
 └── README.md
 ```
@@ -104,7 +108,7 @@ source venv/bin/activate
 
 **2. Install dependencies**
 ```bash
-pip install groq python-dotenv
+pip install -r requirements.txt
 ```
 
 **3. Create a `.env` file**
@@ -113,9 +117,21 @@ GROQ_API_KEY=your_groq_api_key_here
 MODEL=llama-3.3-70b-versatile
 ```
 
-**4. Run**
+**4. Run CLI**
 ```bash
-python main.py
+python -m backend.main
+```
+
+**5. Run API backend (for frontend)**
+```bash
+uvicorn backend.api:app --reload --host 127.0.0.1 --port 8000
+```
+
+**6. Run frontend**
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
 ---

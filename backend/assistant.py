@@ -1,13 +1,12 @@
-
 import json
 
 from groq import Groq
-from config import MODEL, MODEL_API_KEY
-from schema import REQUIRED_FIELDS
+
+from backend.config import MODEL, MODEL_API_KEY
+from backend.schema import REQUIRED_FIELDS
 
 client = Groq(api_key=MODEL_API_KEY)
 
-## system prompt ...
 SYSTEM_PROMPT = """
     You're a helpful assistant that process on the natural language,understands and procees user prompts, and replys just in the STRUCTURE JSON formate ONLY,
 
@@ -16,7 +15,7 @@ SYSTEM_PROMPT = """
         - draft_email
         - schedule_meeting
 
-    OUTPUT MUST BE STRICT JSON ONLY! 
+    OUTPUT MUST BE STRICT JSON ONLY!
 
     schema:{
         "tool": "...",
@@ -28,7 +27,7 @@ SYSTEM_PROMPT = """
 
     required fields for each tool:
         - send_email: to, subject, body
-        - draft_email: to, subject, body 
+        - draft_email: to, subject, body
         - schedule_meeting: participants, date_or_time, duration_minutes (date_or_time will not be in a specific format, it can be any string that represents date or time, e.g. "tomorrow at 5pm", "next monday", "2023-08-15 14:00", etc.)
 
     CRITICAL: Return only and only JSON . No markdown. No backticks. No ```json. Just the JSON object starting with { and ending with }.
@@ -36,7 +35,7 @@ SYSTEM_PROMPT = """
     IMPORTANT: response in just JOSN formate, regardless the prompt is complete or you're follow_up_question, participants must always be a JSON array e.g. ["Priya"], never a plain string.to must always be a JSON array e.g. ["Rahul"], never a plain string.
 
     ANSWERING FORMAT:
-        - If the user prompt is clear and complete, exm :: "Schedule a 45 minute meeting with Rahul and Priya next Tuesday afternoon:", then your response should be : 
+        - If the user prompt is clear and complete, exm :: "Schedule a 45 minute meeting with Rahul and Priya next Tuesday afternoon:", then your response should be :
             {
              "tool": "schedule_meeting",
              "confidence": 0.9,
@@ -49,7 +48,7 @@ SYSTEM_PROMPT = """
              "missing_fields": [],
              "follow_up_question": null,
             }
-            
+
         - If the user prompt is missing some required fields, exm :: "Schedule a meeting with Rahul and Priya next Tuesday afternoon:", then your response should be :
             {
              "tool": "schedule_meeting",
@@ -62,7 +61,7 @@ SYSTEM_PROMPT = """
              "missing_fields": ["duration_minutes"],
              "follow_up_question": "Hey! I need some more information to schedule the meeting, can you please provide the following details: duration_minutes"
             }
-            
+
         - If the user prompt is not clear at all and doesn't support any of the tools, exm :: "I want to search for a restaurant", then your response should be :
             {
              "tool": null,
@@ -71,22 +70,20 @@ SYSTEM_PROMPT = """
              "missing_fields": [],
              "follow_up_question": "Hey! sorry for the inconviniet! I can help with send_email, draft_email, and schedule_meeting."
             }
-    
-    RULES:    
+
+    RULES:
         - MUST follow the schema strictly, and respond in JSON format only, no markdown, no backticks, no explanations, just the JSON object, even messing fields and follow up question should be in JSON format.
         - The "confidence" field should reflect how confident you are in your understanding of the user's intent, with 1 being completely confident and 0 being not confident at all.
         - once a task is completed like send_email, draft_email, or schedule_meeting, and after providing the response, you should reset and be ready for the next user prompt, and your response to the next user prompt should not be influenced by the previous prompts or responses. Each user prompt should be treated independently.
-        
-        
 """
 
-### model calling ...
+
 def call_model(user_prompt: str):
     response = client.chat.completions.create(
         model=MODEL,
-        messages = [
-            {"role":"system", "content":SYSTEM_PROMPT},
-            {"role":"user", "content":user_prompt}
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
         ],
         temperature=0.2,
     )
@@ -95,26 +92,25 @@ def call_model(user_prompt: str):
 
     try:
         return json.loads(content)
-    except:
+    except Exception:
         return {
-            "tool":None,
-            "confidence":0,
-            "args":{},
-            "missing_fields":[],
-            "follow_up_question":"Hey! I'm your assistant for send_email, draft_email, and schedule_meeting. How can I help?"
+            "tool": None,
+            "confidence": 0,
+            "args": {},
+            "missing_fields": [],
+            "follow_up_question": "Hey! I'm your assistant for send_email, draft_email, and schedule_meeting. How can I help?",
         }
 
-#### check if the required fields are present, if not add the missing fields to the response and add follow up question to response ...
+
 def validate_prompt(response: dict):
     tool = response.get("tool")
     args = response.get("args", {})
 
-    ### Check if the tool is not supported, early return with
-    if not tool:  
-        return response 
+    if not tool:
+        return response
 
     required = REQUIRED_FIELDS.get(tool, [])
-    messing = []
+    missing = []
 
     def is_missing(value):
         if value is None:
@@ -127,31 +123,30 @@ def validate_prompt(response: dict):
 
     for field in required:
         if field not in args or is_missing(args.get(field)):
-            messing.append(field)
+            missing.append(field)
 
-    response["missing_fields"] = messing
+    response["missing_fields"] = missing
 
-    ### itrate over the missing fields and add follow up question to response
-    if messing:
+    if missing:
         if tool == "send_email":
-            if set(messing) == {"body"}:
+            if set(missing) == {"body"}:
                 response["follow_up_question"] = "What would you like the email to say?"
             else:
                 question = "Hey ! I need some more information to send the email, can you please provide the following details: "
-                for field in messing:
+                for field in missing:
                     question += f"{field}, "
                 response["follow_up_question"] = question.strip(", ")
         elif tool == "draft_email":
             question = "Hey ! I need some more information to draft the email, can you please provide the following details: "
-            for field in messing:
+            for field in missing:
                 question += f"{field}, "
             response["follow_up_question"] = question.strip(", ")
         elif tool == "schedule_meeting":
-            if set(messing) == {"date_or_time", "duration_minutes"}:
+            if set(missing) == {"date_or_time", "duration_minutes"}:
                 response["follow_up_question"] = "When should I schedule the meeting and for how long?"
             else:
                 question = "Hey ! I need some more information to schedule the meeting, can you please provide the following details: "
-                for field in messing:
+                for field in missing:
                     question += f"{field}, "
                 response["follow_up_question"] = question.strip(", ")
     else:
@@ -159,7 +154,7 @@ def validate_prompt(response: dict):
 
     return response
 
-###  mock execution when fields are complete ...
+
 def execute_tool(response: dict):
     tool = response.get("tool")
     args = response.get("args", {})
@@ -168,33 +163,29 @@ def execute_tool(response: dict):
     if confidence < 0.5:
         return {
             "status": "error",
-            "message": "I'm not confident enough to execute this action. Can you please provide more details?"
+            "message": "I'm not confident enough to execute this action. Can you please provide more details?",
         }
 
     if tool == "send_email":
-        # Mock sending email
         return {
             "status": "success",
-            "message": f"Email sent to {args.get('to')} with subject '{args.get('subject')}'"
+            "message": f"Email sent to {args.get('to')} with subject '{args.get('subject')}'",
         }
-    elif tool == "draft_email":
-        # Mock drafting email
+    if tool == "draft_email":
         return {
             "status": "success",
-            "message": f"Email drafted to {args.get('to')} with subject '{args.get('subject')}'"
+            "message": f"Email drafted to {args.get('to')} with subject '{args.get('subject')}'",
         }
-    elif tool == "schedule_meeting":
-        # Mock scheduling meeting
+    if tool == "schedule_meeting":
         meeting_time = args.get("date_or_time") or args.get("date") or args.get("time")
         return {
             "status": "success",
-            "message": f"Meeting scheduled at {meeting_time} with participants {', '.join(args.get('participants', []))}"
+            "message": f"Meeting scheduled at {meeting_time} with participants {', '.join(args.get('participants', []))}",
         }
-    else:
-        return {
-            "status": "error",
-            "message": "Unsupported tool."
-        }
+    return {
+        "status": "error",
+        "message": "Unsupported tool.",
+    }
 
 
 def process_user_prompt(user_prompt: str):
